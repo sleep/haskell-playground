@@ -1,25 +1,49 @@
+{-# LANGUAGE ExistentialQuantification, RankNTypes #-}
+
+
 module Main where
 
 import Control.Monad
+import Control.Monad.Trans
 import Halive.Utils
 import Language.Haskell.Interpreter
--- import Lib
 
-myRead :: String -> IO [String]
-myRead = readFile >=> return .lines
 
-transform :: String -> String
-transform xs = "> " ++  xs
-
-myPrint :: [String] -> IO ()
-myPrint = mapM_ (putStrLn . transform)
-
-printReturn :: String -> IO String
-printReturn xs = putStrLn xs >> return xs
 
 main :: IO ()
--- main = myRead "test.hsplay" >>= \xss -> myPrint xss
+
 main = do
-  text <- reacquire 0 (printReturn "hello")
-  xss <- myRead "test.hs"
-  myPrint xss
+  _ <- reacquire 0 (putStrLn "hello")
+  putStrLn "\n"
+  r <- runInterpreter test
+  case r of
+    Left err -> putStrLn $ "Oops..." ++ show err
+    Right () -> putStrLn "\n"
+
+
+test :: Interpreter ()
+test = do
+  loadModules ["app/Main.hs"]
+  setTopLevelModules ["Main"]
+  setImports ["Prelude"]
+  say "Loading Main.hs"
+  xss <- lift $ fmap lines (readFile "test.hs")
+  mapM_ rep xss
+
+
+
+rep:: String -> Interpreter ()
+rep str = do
+  say $ "> " ++ str
+  result <- eval str
+  typeof <- typeOf str
+  say $ result ++ "\t\t"++ typeof ++ "\n"
+
+
+
+say :: String -> Interpreter ()
+say = liftIO . putStrLn
+
+
+dup :: forall a. a -> [a]
+dup x = [x, x]
